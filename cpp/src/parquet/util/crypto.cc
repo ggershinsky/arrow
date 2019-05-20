@@ -44,7 +44,11 @@ constexpr int BufferSizeLength = 4;
     throw ParquetException("Couldn't init ALG decryption");           \
   }
 
-AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata) {
+AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+                           std::shared_ptr<std::list<AesEncryptor*>> all_encryptors) {
+  if (all_encryptors != NULLPTR) {
+    all_encryptors->push_back(this);
+  }
   ctx_ = nullptr;
 
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
@@ -233,7 +237,11 @@ int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* 
   return ctr_encrypt(plaintext, plaintext_len, key, key_len, nonce, ciphertext);
 }
 
-AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata) {
+AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+                           std::shared_ptr<std::list<AesDecryptor*>> all_decryptors) {
+  if (all_decryptors != NULLPTR) {
+    all_decryptors->push_back(this);
+  }
   ctx_ = nullptr;
 
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
@@ -411,7 +419,6 @@ int AesDecryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t
   return ctr_decrypt(ciphertext, ciphertext_len, key, key_len, plaintext);
 }
 
-
 static std::string shortToBytesLE(int16_t input) {
   int8_t output[2];
   memset(output, 0, 2);
@@ -458,5 +465,4 @@ void quickUpdatePageAAD(const std::string& AAD, int16_t new_page_ordinal) {
   std::memcpy((int16_t*)(const_cast<char*>(AAD.c_str() + length - 2)),
               (const int16_t*)(page_ordinal_bytes.c_str()), 2);
 }
-
 }  // namespace parquet_encryption

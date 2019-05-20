@@ -18,6 +18,7 @@
 #ifndef PARQUET_UTIL_CRYPTO_H
 #define PARQUET_UTIL_CRYPTO_H
 
+#include <list>
 #include <memory>
 #include <string>
 
@@ -45,7 +46,8 @@ const int8_t OffsetIndex = 7;
 class AesEncryptor {
  public:
   // Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
+  AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+               std::shared_ptr<std::list<AesEncryptor*>> all_encryptors);
 
   // Size different between plaintext and ciphertext, for this cipher.
   int CiphertextSizeDelta();
@@ -62,12 +64,14 @@ class AesEncryptor {
   void WipeOut() {
     if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
+      ctx_ = NULLPTR;
     }
   }
 
   ~AesEncryptor() {
     if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
+      ctx_ = NULLPTR;
     }
   }
 
@@ -87,7 +91,15 @@ class AesEncryptor {
 class AesDecryptor {
  public:
   // Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
+  AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+               std::shared_ptr<std::list<AesDecryptor*>> all_decryptors);
+
+  void WipeOut() {
+    if (NULLPTR != ctx_) {
+      EVP_CIPHER_CTX_free(ctx_);
+      ctx_ = NULLPTR;
+    }
+  }
 
   // Size different between plaintext and ciphertext, for this cipher.
   int CiphertextSizeDelta();
@@ -97,15 +109,10 @@ class AesDecryptor {
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* plaintext);
 
-  void WipeOut() {
-    if (NULLPTR != ctx_) {
-      EVP_CIPHER_CTX_free(ctx_);
-    }
-  }
-
   ~AesDecryptor() {
     if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
+      ctx_ = NULLPTR;
     }
   }
 
